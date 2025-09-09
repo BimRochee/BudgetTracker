@@ -149,42 +149,6 @@ flutter build ios --release
 ```bash
 flutter build web --release
 ```
-
-## 📊 Database Schema
-
-The app uses SQLite with the following tables:
-
-### Goals Table
-
-```sql
-CREATE TABLE goals(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  targetAmount REAL NOT NULL,
-  currentAmount REAL NOT NULL,
-  durationDays INTEGER NOT NULL,
-  startDate TEXT NOT NULL,
-  endDate TEXT NOT NULL,
-  dailyGoal REAL NOT NULL,
-  status TEXT NOT NULL
-)
-```
-
-### Income Table
-
-```sql
-CREATE TABLE income(
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source TEXT NOT NULL,
-  amount REAL NOT NULL,
-  category TEXT NOT NULL,
-  walletId TEXT NOT NULL,
-  date TEXT NOT NULL,
-  description TEXT NOT NULL,
-  type TEXT NOT NULL
-)
-```
-
 ## 🔒 Privacy & Security
 
 - **Local Storage**: All data is stored locally on your device
