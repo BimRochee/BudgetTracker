@@ -244,5 +244,5 @@ If you have any questions or need help, please:
 
 <div align="center">
   <p>Made with ❤️ using Flutter</p>
-  <p>© 2024 BudgetTracker. All rights reserved.</p>
+  <p>© 2025 BudgetTracker. All rights reserved.</p>
 </div>
