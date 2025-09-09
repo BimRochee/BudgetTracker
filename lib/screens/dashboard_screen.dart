@@ -705,14 +705,14 @@ class DashboardScreen extends StatelessWidget {
                 ),
               ),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   final amount = double.tryParse(amountController.text) ?? 0.0;
                   if (amount > 0) {
-                    Provider.of<BudgetProvider>(
+                    await Provider.of<BudgetProvider>(
                       context,
                       listen: false,
                     ).setBudget(amount);
-                    Navigator.pop(context);
+                    if (context.mounted) Navigator.pop(context);
                   }
                 },
                 style: ElevatedButton.styleFrom(

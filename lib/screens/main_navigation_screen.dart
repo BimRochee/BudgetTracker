@@ -277,7 +277,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
     showDialog(
       context: context,
       builder:
-          (context) => StatefulBuilder(
+          (dialogContext) => StatefulBuilder(
             builder: (context, setState) {
               final budgetProvider = Provider.of<BudgetProvider>(
                 context,
@@ -404,14 +404,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
                 ),
                 actions: [
                   TextButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () => Navigator.pop(dialogContext),
                     child: const Text(
                       'Cancel',
                       style: TextStyle(color: AppTheme.softPink),
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       try {
                         final description = descriptionController.text;
                         final amount =
@@ -427,14 +427,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
                             category.isNotEmpty &&
                             selectedWalletId.isNotEmpty &&
                             selectedWalletId != 'no_wallet') {
-                          budgetProvider.addExpense(
+                          await budgetProvider.addExpense(
                             description,
                             amount,
                             category,
                             selectedWalletId,
                           );
                           ErrorHandler.logInfo('Expense added successfully');
-                          Navigator.pop(context);
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                          }
                         } else {
                           String errorMessage =
                               'Add Expense validation failed - ';

@@ -31,37 +31,45 @@ class BudgetProvider extends ChangeNotifier {
   List<Goal> get completedGoals =>
       _goals.where((goal) => goal.status == 'completed').toList();
 
-  void setBudget(double amount) {
+  Future<void> setBudget(double amount) async {
     _totalBudget = amount;
+    await _databaseHelper.setBudget(_totalBudget, _totalExpenses);
     notifyListeners();
   }
 
-  void addExpense(
+  Future<void> addExpense(
     String description,
     double amount,
     String category,
     String walletId,
-  ) {
+  ) async {
     try {
       ErrorHandler.logInfo(
         'BudgetProvider.addExpense called with: description=$description, amount=$amount, category=$category, walletId=$walletId',
       );
 
-      _expenses = [
-        ..._expenses,
-        {
-          'id': DateTime.now().millisecondsSinceEpoch.toString(),
-          'description': description,
-          'amount': amount,
-          'category': category,
-          'walletId': walletId,
-          'date': DateTime.now(),
-        },
-      ];
+      final expense = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'description': description,
+        'amount': amount,
+        'category': category,
+        'walletId': walletId,
+        'date': DateTime.now().toIso8601String(),
+      };
+
+      // Save to database
+      await _databaseHelper.insertExpense(expense);
+
+      // Update memory
+      _expenses = [expense, ..._expenses];
       _totalExpenses += amount;
 
       // Deduct from wallet balance
-      _updateWalletBalance(walletId, -amount);
+      await _updateWalletBalance(walletId, -amount);
+
+      // Update budget in database
+      await _databaseHelper.setBudget(_totalBudget, _totalExpenses);
+
       notifyListeners();
 
       ErrorHandler.logInfo(
@@ -76,11 +84,15 @@ class BudgetProvider extends ChangeNotifier {
     }
   }
 
-  void removeExpense(String id) {
+  Future<void> removeExpense(String id) async {
     final expense = _expenses.firstWhere((exp) => exp['id'] == id);
     final walletId = expense['walletId'];
     final amount = expense['amount'];
 
+    // Remove from database
+    await _databaseHelper.deleteExpense(id);
+
+    // Update memory
     _expenses = _expenses.where((expense) => expense['id'] != id).toList();
     _totalExpenses = _expenses.fold(
       0.0,
@@ -88,28 +100,52 @@ class BudgetProvider extends ChangeNotifier {
     );
 
     // Add back to wallet balance
-    _updateWalletBalance(walletId, amount);
+    await _updateWalletBalance(walletId, amount);
+
+    // Update budget in database
+    await _databaseHelper.setBudget(_totalBudget, _totalExpenses);
+
     notifyListeners();
   }
 
-  void addWallet(Wallet wallet) {
+  Future<void> addWallet(Wallet wallet) async {
+    // Save to database
+    await _databaseHelper.insertWallet(wallet.toJson());
+
+    // Update memory
     _wallets = [..._wallets, wallet];
     notifyListeners();
   }
 
-  void updateWalletBalance(String walletId, double amount) {
-    _updateWalletBalance(walletId, amount);
+  Future<void> updateWalletBalance(String walletId, double amount) async {
+    await _updateWalletBalance(walletId, amount);
     notifyListeners();
   }
 
-  void _updateWalletBalance(String walletId, double amount) {
+  Future<void> _updateWalletBalance(String walletId, double amount) async {
     _wallets =
         _wallets.map((wallet) {
           if (wallet.id == walletId) {
-            return wallet.copyWith(balance: wallet.balance + amount);
+            final updatedWallet = wallet.copyWith(
+              balance: wallet.balance + amount,
+            );
+            // Update in database
+            _databaseHelper.updateWallet(updatedWallet.toJson());
+            return updatedWallet;
           }
           return wallet;
         }).toList();
+
+    // Remove wallet if balance becomes 0 or negative
+    try {
+      final wallet = _wallets.firstWhere((w) => w.id == walletId);
+      if (wallet.balance <= 0.0) {
+        await _databaseHelper.deleteWallet(walletId);
+        _wallets = _wallets.where((w) => w.id != walletId).toList();
+      }
+    } catch (e) {
+      // Wallet not found, ignore
+    }
   }
 
   Wallet? getWalletById(String walletId) {
@@ -250,5 +286,53 @@ class BudgetProvider extends ChangeNotifier {
     return _income
         .where((income) => income.category == category)
         .fold(0.0, (sum, income) => sum + income.amount);
+  }
+
+  // Load all data from database
+  Future<void> loadAllData() async {
+    try {
+      // Load expenses
+      final expensesData = await _databaseHelper.getAllExpenses();
+      _expenses = expensesData;
+      _totalExpenses = expensesData.fold(
+        0.0,
+        (sum, expense) => sum + expense['amount'],
+      );
+
+      // Load wallets
+      final walletsData = await _databaseHelper.getAllWallets();
+      _wallets = walletsData.map((data) => Wallet.fromJson(data)).toList();
+
+      // Remove wallets with 0 balance
+      await _removeZeroBalanceWallets();
+
+      // Load budget
+      final budgetData = await _databaseHelper.getBudget();
+      if (budgetData != null) {
+        _totalBudget = budgetData['totalBudget']?.toDouble() ?? 0.0;
+        _totalExpenses = budgetData['totalExpenses']?.toDouble() ?? 0.0;
+      }
+
+      // Load goals and income (already implemented)
+      await loadGoals();
+      await loadIncome();
+
+      notifyListeners();
+    } catch (e, stackTrace) {
+      ErrorHandler.logError('Error loading all data', e, stackTrace);
+    }
+  }
+
+  // Remove wallets with 0 balance
+  Future<void> _removeZeroBalanceWallets() async {
+    final zeroBalanceWallets =
+        _wallets.where((wallet) => wallet.balance == 0.0).toList();
+
+    for (final wallet in zeroBalanceWallets) {
+      await _databaseHelper.deleteWallet(wallet.id);
+    }
+
+    // Update the wallets list to exclude zero balance wallets
+    _wallets = _wallets.where((wallet) => wallet.balance > 0.0).toList();
   }
 }

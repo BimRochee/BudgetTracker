@@ -23,8 +23,7 @@ class BudgetTrackerApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) {
         final provider = BudgetProvider();
-        provider.loadGoals(); // Load goals on app start
-        provider.loadIncome(); // Load income on app start
+        provider.loadAllData(); // Load all data on app start
         return provider;
       },
       child: MaterialApp(

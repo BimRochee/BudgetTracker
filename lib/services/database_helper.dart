@@ -18,10 +18,32 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'budget_tracker.db');
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return await openDatabase(
+      path,
+      version: 3,
+      onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    await _createAllTables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add new tables for expenses, wallets, and budget
+      await _createNewTables(db);
+    }
+    if (oldVersion < 3) {
+      // Add type column to wallets table
+      await db.execute(
+        'ALTER TABLE wallets ADD COLUMN type TEXT NOT NULL DEFAULT "cash"',
+      );
+    }
+  }
+
+  Future<void> _createAllTables(Database db) async {
     // Create goals table
     await db.execute('''
       CREATE TABLE goals(
@@ -48,6 +70,74 @@ class DatabaseHelper {
         date TEXT NOT NULL,
         description TEXT NOT NULL,
         type TEXT NOT NULL
+      )
+    ''');
+
+    // Create expenses table
+    await db.execute('''
+      CREATE TABLE expenses(
+        id TEXT PRIMARY KEY,
+        description TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        walletId TEXT NOT NULL,
+        date TEXT NOT NULL
+      )
+    ''');
+
+    // Create wallets table
+    await db.execute('''
+      CREATE TABLE wallets(
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        balance REAL NOT NULL,
+        icon TEXT NOT NULL,
+        color TEXT NOT NULL
+      )
+    ''');
+
+    // Create budget table
+    await db.execute('''
+      CREATE TABLE budget(
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        totalBudget REAL NOT NULL,
+        totalExpenses REAL NOT NULL
+      )
+    ''');
+  }
+
+  Future<void> _createNewTables(Database db) async {
+    // Create expenses table
+    await db.execute('''
+      CREATE TABLE expenses(
+        id TEXT PRIMARY KEY,
+        description TEXT NOT NULL,
+        amount REAL NOT NULL,
+        category TEXT NOT NULL,
+        walletId TEXT NOT NULL,
+        date TEXT NOT NULL
+      )
+    ''');
+
+    // Create wallets table
+    await db.execute('''
+      CREATE TABLE wallets(
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        balance REAL NOT NULL,
+        icon TEXT NOT NULL,
+        color TEXT NOT NULL
+      )
+    ''');
+
+    // Create budget table
+    await db.execute('''
+      CREATE TABLE budget(
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        totalBudget REAL NOT NULL,
+        totalExpenses REAL NOT NULL
       )
     ''');
   }
@@ -231,6 +321,76 @@ class DatabaseHelper {
       [startDate.toIso8601String(), endDate.toIso8601String()],
     );
     return result.first['total']?.toDouble() ?? 0.0;
+  }
+
+  // Expenses CRUD operations
+  Future<int> insertExpense(Map<String, dynamic> expense) async {
+    final db = await database;
+    return await db.insert('expenses', expense);
+  }
+
+  Future<List<Map<String, dynamic>>> getAllExpenses() async {
+    final db = await database;
+    return await db.query('expenses', orderBy: 'date DESC');
+  }
+
+  Future<int> deleteExpense(String id) async {
+    final db = await database;
+    return await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<double> getTotalExpenses() async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM expenses',
+    );
+    return result.first['total']?.toDouble() ?? 0.0;
+  }
+
+  // Wallets CRUD operations
+  Future<int> insertWallet(Map<String, dynamic> wallet) async {
+    final db = await database;
+    return await db.insert('wallets', wallet);
+  }
+
+  Future<List<Map<String, dynamic>>> getAllWallets() async {
+    final db = await database;
+    return await db.query('wallets');
+  }
+
+  Future<int> updateWallet(Map<String, dynamic> wallet) async {
+    final db = await database;
+    return await db.update(
+      'wallets',
+      wallet,
+      where: 'id = ?',
+      whereArgs: [wallet['id']],
+    );
+  }
+
+  Future<int> deleteWallet(String id) async {
+    final db = await database;
+    return await db.delete('wallets', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // Budget CRUD operations
+  Future<int> setBudget(double totalBudget, double totalExpenses) async {
+    final db = await database;
+    return await db.insert('budget', {
+      'id': 1,
+      'totalBudget': totalBudget,
+      'totalExpenses': totalExpenses,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<Map<String, dynamic>?> getBudget() async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.query(
+      'budget',
+      where: 'id = ?',
+      whereArgs: [1],
+    );
+    return result.isNotEmpty ? result.first : null;
   }
 
   Future<void> close() async {
