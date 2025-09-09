@@ -175,35 +175,6 @@ The app features a beautiful color scheme with:
 - ✅ **macOS** (Desktop)
 - ✅ **Linux** (Desktop)
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Flutter team for the amazing framework
-- Material Design for the beautiful UI components
-- SQLite for reliable local storage
-- The open-source community for inspiration
-
-## 📞 Support
-
-If you have any questions or need help, please:
-
-- Open an issue on GitHub
-- Check the documentation
-- Contact the development team
-
 ---
 
 <div align="center">
